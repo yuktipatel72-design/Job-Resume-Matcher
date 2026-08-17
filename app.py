@@ -565,5 +565,5 @@ if uploaded_file is not None:
                 render_job_card(job)
 
 st.markdown('<hr style="margin-top:40px; border-color:#DCE1E8;">', unsafe_allow_html=True)
-st.caption("Created by Yukti Patel | Data via Adzuna & Jooble APIs | Match accuracy depends on job posting detail")
+st.markdown('<p style="text-align:center; color:#9CA3AF; font-size:13px;">Created by Yukti Patel | Data via Adzuna & Jooble APIs | Match accuracy depends on job posting detail</p>', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#9CA3AF; font-size:13px;"><a href="https://github.com/yuktipatel72-design" target="_blank" style="color:#0F766E;">GitHub</a> &nbsp;|&nbsp; <a href="www.linkedin.com/in/yuktipatel0472" target="_blank" style="color:#0F766E;">LinkedIn</a></p>', unsafe_allow_html=True)
