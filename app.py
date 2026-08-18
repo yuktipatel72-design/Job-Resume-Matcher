@@ -113,7 +113,7 @@ def split_resume_sections(resume_text, section_headers_dict):
 
 # --- Section 2: Skill Extraction ---
 role_skills = {
-    "Data Analyst": ["SQL", "Excel", "Python", "Tableau", "Power BI", "Statistical Analysis", "Data Cleaning", "Google Analytics", "Dashboarding"],
+    "Data Analyst": ["SQL", "Excel", "Python", "Tableau", "Power BI", "Statistical Analysis", "Data Cleaning", "Google Analytics", "Dashboarding", "Data Visualization"],
     "Data Scientist": ["Python", "R", "SQL", "Machine Learning", "pandas", "NumPy", "Git", "Scikit-learn", "Data Visualization"],
     "Data Engineer": ["Python", "SQL", "ETL", "Relational Databases", "Git", "Linux", "Bash", "Data Warehousing", "SQL Server"],
     "Software Developer": ["Java", "Python", "Data Structures", "Algorithms", "Git", "GitHub", "OOP", "SQL", "HTML5", "CSS3", "REST API", "NoSQL", "Linux"],
@@ -244,8 +244,11 @@ def get_adzuna_jobs(role, city, level, app_id, app_key):
         "app_id": app_id, "app_key": app_key, "title_only": role,
         "what_exclude": exclude_terms, "where": city, "results_per_page": 20
     }
-    response = requests.get(url, params=params)
-    data = response.json().get("results", [])
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json().get("results", [])
+    except Exception:
+        return []
     jobs = []
     for job in data:
         jobs.append({
@@ -374,6 +377,14 @@ def get_match_badge(job, min_skills_threshold=3):
             label += " (partial)"
         return label, color
 
+def get_score_color(pct):
+    if pct >= 70:
+        return "#10B981"
+    elif pct >= 40:
+        return "#F59E0B"
+    else:
+        return "#EF4444"
+
 def format_salary(salary):
     if not salary:
         return "Not disclosed"
@@ -386,8 +397,6 @@ def format_salary(salary):
 
 def render_job_card(job):
     label, color = get_match_badge(job)
-    matched = ", ".join(job.get("matched_skills", [])) or "None"
-    missing = ", ".join(job.get("missing_skills", [])) or "None"
     salary = format_salary(job["salary"])
     
     card_html = f"""
@@ -400,14 +409,14 @@ def render_job_card(job):
         <div style="background-color:{color}; color:white; padding:4px 12px; border-radius:20px; font-size:13px; font-weight:600;">{label}</div>
       </div>
       <div style="margin-top:10px; font-size:13px; color:#4B5563;">💰 {salary} &nbsp;|&nbsp; 🌐 {job['source']}</div>
-      <div style="margin-top:8px; font-size:13px; color:#059669;">✅ Found: {matched}</div>
-      <div style="margin-top:4px; font-size:13px; color:#DC2626;">❌ Missing: {missing}</div>
+      <div style="margin-top:8px; font-size:12px; color:#9CA3AF;">Want the exact skill breakdown? Use "Verify an Exact Match" below.</div>
       <div style="margin-top:10px;">
         <a href="{job['apply_link']}" target="_blank" style="background-color:{color}; color:white; padding:6px 14px; border-radius:6px; text-decoration:none; font-size:13px;">Apply →</a>
       </div>
     </div>
     """
     st.markdown(card_html, unsafe_allow_html=True)
+
 def display_results(jobs_list, top_n=10, min_skills_threshold=3):
     display_data = []
     for job in jobs_list[:top_n]:
@@ -534,7 +543,12 @@ if uploaded_file is not None:
             job["missing_skills"] = missing
         
         cleaned_jobs = sorted(cleaned_jobs, key=lambda x: x["match_pct"], reverse=True)
-        
+
+        st.session_state.cleaned_jobs = cleaned_jobs
+        st.session_state.has_searched = True
+
+    if st.session_state.get("has_searched", False):
+        cleaned_jobs = st.session_state.cleaned_jobs
         st.subheader("Matching Jobs")
 
         if not cleaned_jobs:
@@ -561,9 +575,66 @@ if uploaded_file is not None:
             """
             st.markdown(kpi_html, unsafe_allow_html=True)
 
+            st.info("⚠️ Match percentages are estimates based on available job data, which is sometimes incomplete. For an exact score, use the 'Verify an Exact Match' section below and paste the full job description.")
             for job in cleaned_jobs[:10]:
                 render_job_card(job)
+                
+            st.markdown("---")
+            with st.container(border=True):
+                section_header("🔍 Verify an Exact Match")
+                job_labels = [f"{job['company']} — {job['title']}" for job in cleaned_jobs[:10]]
+                selected_job_label = st.selectbox("Select a job to verify", job_labels)
+                if "paste_key" not in st.session_state:
+                    st.session_state.paste_key = 0
+        
+                pasted_description = st.text_area(
+                    "Paste the full job description here", 
+                    height=250, 
+                    key=f"paste_{st.session_state.paste_key}"
+                )
+        
+                col_verify, col_clear = st.columns([2, 1])
+                with col_verify:
+                    verify_clicked = st.button("Recalculate Exact Match")
+                with col_clear:
+                    if st.button("Clear"):
+                        st.session_state.paste_key += 1
+                        st.rerun()
+        
+                if verify_clicked:
+                    if not pasted_description.strip():
+                        st.warning("Please paste the job description first.")
+                    else:
+                        selected_index = job_labels.index(selected_job_label)
+                        selected_job = cleaned_jobs[selected_index]
 
+                        job_title_norm = normalize(selected_job["title"])
+                        matched_role = None
+                        for role in selected_roles:
+                            if normalize(role) in job_title_norm:
+                                matched_role = role
+                                break
+                        if not matched_role:
+                            matched_role = selected_roles[0]
+
+                        skill_list_to_use = get_combined_skill_list(matched_role, role_skills, senior_skills, role_levels.get(matched_role, "entry level"))
+                        resume_skills_to_use = edited_skills[matched_role]
+
+                        verified_pct, verified_matched, verified_missing = calculate_match(resume_skills_to_use, pasted_description, skill_list_to_use)
+
+                        verified_color = get_score_color(verified_pct)
+                        st.markdown(f"""
+                            <div style="background-color:{verified_color}; color:white; padding:12px 16px; border-radius:8px; font-size:16px; font-weight:600; margin-bottom:12px;">
+                                ✅ Verified Match: {verified_pct}%
+                            </div>
+                        """, unsafe_allow_html=True)
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown(f"**✅ Skills Found:**")
+                            st.write(', '.join(verified_matched) if verified_matched else 'None')
+                        with col2:
+                            st.markdown(f"**❌ Missing Skills:**")
+                            st.write(', '.join(verified_missing) if verified_missing else 'None')
 st.markdown('<hr style="margin-top:40px; border-color:#DCE1E8;">', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#9CA3AF; font-size:13px;">Created by Yukti Patel | Data via Adzuna & Jooble APIs | Match accuracy depends on job posting detail</p>', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#9CA3AF; font-size:13px;"><a href="https://github.com/yuktipatel72-design" target="_blank" style="color:#0F766E;">GitHub</a> &nbsp;|&nbsp; <a href="www.linkedin.com/in/yuktipatel0472" target="_blank" style="color:#0F766E;">LinkedIn</a></p>', unsafe_allow_html=True)
