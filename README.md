@@ -1,6 +1,6 @@
 # JobFit — Resume to Job Matcher
 
-A web app that reads your resume, figures out your role and skill level, and matches you against **live** job postings pulled from real job APIs — not a static dataset.
+A web app that reads your resume, figures out your role and skill level, and matches your resume skills against **live** job postings pulled from real job APIs — not a static dataset.
 
 🔗 **Live app:** https://jobresume-fit.streamlit.app/
 
