@@ -8,11 +8,11 @@ A web app that reads your resume, figures out your role and skill level, and mat
 
 ## What it does
 
-1. **Upload your resume** (PDF)
-2. The app extracts your skills, detects your likely role(s), and figures out if you're entry-level or experienced
-3. You confirm/edit the detected role and skills
-4. It searches **live** postings via the Adzuna and Jooble APIs for your role and chosen city
-5. Each result shows a match %, missing skills, salary (when disclosed), and a direct apply link
+1. 📄 **Upload your resume** (PDF)
+2. 🛠️ The app extracts your skills, detects your likely role(s), and figures out if you're entry-level or experienced
+3. 🎯 You confirm/edit the detected role and skills
+4. 🔎 It searches **live** postings via the Adzuna and Jooble APIs for your role and chosen city
+5. 📊 Each result shows a match %, missing skills, salary (when disclosed), and a direct apply link
 
 ### Verify Exact Match
 
