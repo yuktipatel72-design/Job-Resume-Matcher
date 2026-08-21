@@ -13,7 +13,7 @@ def get_base64_image(image_path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-st.set_page_config(page_title="Resume Job Matcher", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="JobFit", page_icon="🎯", layout="wide")
 
 st.markdown("""
     <style>
@@ -65,7 +65,7 @@ def section_header(title):
         </div>
     """, unsafe_allow_html=True)
 
-st.markdown('<h1 style="color:#0F766E;">Resume Job Matcher</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="color:#0F766E;">JobFit</h1>', unsafe_allow_html=True)
 st.markdown('<p style="color:#4B5563; font-size:17px; margin-top:-8px;">See live job openings that match your resume, plus what skills you\'re missing.</p>', unsafe_allow_html=True)
 
 # --- Section 1: PDF Text Extraction ---
@@ -582,8 +582,8 @@ if uploaded_file is not None:
             st.markdown("---")
             with st.container(border=True):
                 section_header("🔍 Verify an Exact Match")
-                job_labels = [f"{job['company']} — {job['title']}" for job in cleaned_jobs[:10]]
-                selected_job_label = st.selectbox("Select a job to verify", job_labels)
+                job_labels = ["None"] + [f"{job['company']} — {job['title']}" for job in cleaned_jobs[:10]]
+                selected_job_label = st.selectbox("Which role should we use to check your pasted description?", job_labels)
                 if "paste_key" not in st.session_state:
                     st.session_state.paste_key = 0
         
@@ -605,17 +605,22 @@ if uploaded_file is not None:
                     if not pasted_description.strip():
                         st.warning("Please paste the job description first.")
                     else:
-                        selected_index = job_labels.index(selected_job_label)
-                        selected_job = cleaned_jobs[selected_index]
-
-                        job_title_norm = normalize(selected_job["title"])
-                        matched_role = None
-                        for role in selected_roles:
-                            if normalize(role) in job_title_norm:
-                                matched_role = role
-                                break
-                        if not matched_role:
-                            matched_role = selected_roles[0]
+                        if selected_job_label == "None":
+                            if len(selected_roles) == 1:
+                                matched_role = selected_roles[0]
+                            else:
+                                matched_role = st.selectbox("Which of your roles is this job for?", selected_roles)
+                        else:
+                            selected_index = job_labels.index(selected_job_label) - 1
+                            selected_job = cleaned_jobs[selected_index]
+                            job_title_norm = normalize(selected_job["title"])
+                            matched_role = None
+                            for role in selected_roles:
+                                if normalize(role) in job_title_norm:
+                                    matched_role = role
+                                    break
+                            if not matched_role:
+                                matched_role = selected_roles[0]
 
                         skill_list_to_use = get_combined_skill_list(matched_role, role_skills, senior_skills, role_levels.get(matched_role, "entry level"))
                         resume_skills_to_use = edited_skills[matched_role]
@@ -635,6 +640,7 @@ if uploaded_file is not None:
                         with col2:
                             st.markdown(f"**❌ Missing Skills:**")
                             st.write(', '.join(verified_missing) if verified_missing else 'None')
+
 st.markdown('<hr style="margin-top:40px; border-color:#DCE1E8;">', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#9CA3AF; font-size:13px;">Created by Yukti Patel | Data via Adzuna & Jooble APIs | Match accuracy depends on job posting detail</p>', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#9CA3AF; font-size:13px;"><a href="https://github.com/yuktipatel72-design" target="_blank" style="color:#0F766E;">GitHub</a> &nbsp;|&nbsp; <a href="www.linkedin.com/in/yuktipatel0472" target="_blank" style="color:#0F766E;">LinkedIn</a></p>', unsafe_allow_html=True)
