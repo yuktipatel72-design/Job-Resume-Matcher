@@ -476,10 +476,7 @@ if uploaded_file is not None:
     full_skill_list_by_role = {}
     for role, pct in roles_to_search:
         level = role_levels[role]
-        if level == "experienced":
-            skill_list = role_skills[role] + senior_skills.get(role, [])
-        else:
-            skill_list = role_skills[role]
+        skill_list = get_combined_skill_list(role, role_skills, senior_skills, level)
         full_skill_list_by_role[role] = skill_list
         resume_skills_by_role[role] = extract_skills_for_role(sections, skill_list)
 
@@ -583,7 +580,25 @@ if uploaded_file is not None:
             with st.container(border=True):
                 section_header("🔍 Verify an Exact Match")
                 job_labels = ["None"] + [f"{job['company']} — {job['title']}" for job in cleaned_jobs[:10]]
-                selected_job_label = st.selectbox("Which role should we use to check your pasted description?", job_labels)
+                selected_job_label = st.selectbox("Select a job to verify", job_labels)
+
+                if selected_job_label == "None":
+                    if len(selected_roles) == 1:
+                        matched_role = selected_roles[0]
+                    else:
+                        matched_role = st.selectbox("Which of your roles is this job for?", selected_roles)
+                else:
+                    selected_index = job_labels.index(selected_job_label) - 1
+                    selected_job = cleaned_jobs[selected_index]
+                    job_title_norm = normalize(selected_job["title"])
+                    matched_role = None
+                    for role in selected_roles:
+                        if normalize(role) in job_title_norm:
+                            matched_role = role
+                            break
+                    if not matched_role:
+                        matched_role = selected_roles[0]
+
                 if "paste_key" not in st.session_state:
                     st.session_state.paste_key = 0
         
@@ -605,23 +620,6 @@ if uploaded_file is not None:
                     if not pasted_description.strip():
                         st.warning("Please paste the job description first.")
                     else:
-                        if selected_job_label == "None":
-                            if len(selected_roles) == 1:
-                                matched_role = selected_roles[0]
-                            else:
-                                matched_role = st.selectbox("Which of your roles is this job for?", selected_roles)
-                        else:
-                            selected_index = job_labels.index(selected_job_label) - 1
-                            selected_job = cleaned_jobs[selected_index]
-                            job_title_norm = normalize(selected_job["title"])
-                            matched_role = None
-                            for role in selected_roles:
-                                if normalize(role) in job_title_norm:
-                                    matched_role = role
-                                    break
-                            if not matched_role:
-                                matched_role = selected_roles[0]
-
                         skill_list_to_use = get_combined_skill_list(matched_role, role_skills, senior_skills, role_levels.get(matched_role, "entry level"))
                         resume_skills_to_use = edited_skills[matched_role]
 
