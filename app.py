@@ -461,7 +461,6 @@ with col_upload:
                 st.session_state.last_uploaded_name = uploaded_file.name
 
 if uploaded_file is not None:
-    
     resume_text = extract_text_from_pdf(uploaded_file)
     sections = split_resume_sections(resume_text, section_headers)
     results = extract_skills(sections, role_skills)
@@ -489,9 +488,12 @@ if uploaded_file is not None:
                 options=role_options,
                 default=role_options
             )
+            role_score_lookup = dict(role_scores)
+
             for role in selected_roles:
                 level_label = "🌱 Entry Level" if role_levels[role] == "entry level" else "⭐ Experienced"
-                st.caption(f"**{role}**: {level_label}")
+                match_pct = role_score_lookup.get(role, 0)
+                st.caption(f"**{role}**: {level_label} ({match_pct}% skill match)")
 
     with st.container(border=True):
                 section_header("🛠️ Skills")
@@ -507,6 +509,8 @@ if uploaded_file is not None:
     search_clicked = st.button("Find Matching Jobs")
     
     if search_clicked:
+        st.session_state.job_page = 0
+        st.session_state.searched_city = city
         with st.spinner("Searching live job postings..."):
             init_cache_db()
             all_jobs = []
@@ -566,20 +570,54 @@ if uploaded_file is not None:
                 </div>
                 <div style="flex:1; background-color:#14B8A6; border-radius:12px; padding:18px; border:1px solid #0F9488; box-shadow: 0 2px 6px rgba(0,0,0,0.05); text-align:center;">
                     <div style="font-size:15px; color:#E6FFFA; font-weight:500;">📍 City</div>
-                    <div style="font-size:28px; font-weight:700; color:#FFFFFF; margin-top:4px;">{city}</div>
+                    <div style="font-size:28px; font-weight:700; color:#FFFFFF; margin-top:4px;">{st.session_state.searched_city}</div>
                 </div>
             </div>
             """
             st.markdown(kpi_html, unsafe_allow_html=True)
 
             st.info("⚠️ Match percentages are estimates based on available job data, which is sometimes incomplete. For an exact score, use the 'Verify an Exact Match' section below and paste the full job description.")
-            for job in cleaned_jobs[:10]:
+            if "job_page" not in st.session_state:
+                st.session_state.job_page = 0
+
+            jobs_per_page = 10
+            start = st.session_state.job_page * jobs_per_page
+            end = start + jobs_per_page
+            current_page_jobs = cleaned_jobs[start:end]
+
+            for job in current_page_jobs:
                 render_job_card(job)
-                
+
+            has_back = st.session_state.job_page > 0
+            has_next = end < len(cleaned_jobs)
+
+            if has_back and has_next:
+                col_back, col_next = st.columns(2)
+                with col_back:
+                    if st.button("← Back"):
+                        st.session_state.job_page -= 1
+                        st.rerun()
+                with col_next:
+                    if st.button(f"Next {min(jobs_per_page, len(cleaned_jobs) - end)} →"):
+                        st.session_state.job_page += 1
+                        st.rerun()
+            elif has_back:
+                col_a, col_b, col_c = st.columns([1, 1, 1])
+                with col_b:
+                    if st.button("← Back"):
+                        st.session_state.job_page -= 1
+                        st.rerun()
+            elif has_next:
+                col_a, col_b, col_c = st.columns([1, 1, 1])
+                with col_b:
+                    if st.button(f"Next {min(jobs_per_page, len(cleaned_jobs) - end)} →"):
+                        st.session_state.job_page += 1
+                        st.rerun()
+                        
             st.markdown("---")
             with st.container(border=True):
                 section_header("🔍 Verify an Exact Match")
-                job_labels = ["None"] + [f"{job['company']} — {job['title']}" for job in cleaned_jobs[:10]]
+                job_labels = ["None"] + [f"{job['company']} — {job['title']}" for job in current_page_jobs]
                 selected_job_label = st.selectbox("Select a job to verify", job_labels)
 
                 if selected_job_label == "None":
